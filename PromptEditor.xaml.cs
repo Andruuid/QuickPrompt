@@ -60,7 +60,8 @@ public partial class PromptEditor : Window
         GermanButton.IsEnabled = !single || _language == "de";
         LanguageModeHelp.Text = single
             ? "Uses the selected version without a language warning. Saving keeps only this version; older text stays in backups."
-            : "Only the prompt text changes between EN and DE. The title and description stay the same.";
+            : "";
+        LanguageModeHelp.Visibility = single ? Visibility.Visible : Visibility.Collapsed;
     }
     private void OnLanguageModeChanged(object sender, RoutedEventArgs e)
     {
