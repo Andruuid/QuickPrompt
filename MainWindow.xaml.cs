@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -26,7 +27,7 @@ public partial class MainWindow : Window
     private IntPtr _handle;
     private IntPtr _previousWindow;
     private int _category;
-    private bool _dialogOpen, _menuOpen, _exiting, _copying, _ready;
+    private bool _dialogOpen, _menuOpen, _exiting, _copying, _ready, _dragging;
     private string? _registeredHotkey;
     private Window? _dialog;
     private NativeMethods.Rect _monitorWork;
@@ -139,7 +140,17 @@ public partial class MainWindow : Window
         PromptList.MaxHeight = Math.Max(54, Math.Min(324, MaxHeight - 162));
     }
 
-    private void OnLauncherSizeChanged(object sender, SizeChangedEventArgs e) => CenterLauncher();
+    private void OnHeaderMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != MouseButton.Left || _dialogOpen) return;
+        for (var source = e.OriginalSource as DependencyObject; source is not null && source != LauncherHeader;
+            source = source is Visual ? VisualTreeHelper.GetParent(source) : LogicalTreeHelper.GetParent(source))
+            if (source is ButtonBase) return;
+        e.Handled = true;
+        _dragging = true;
+        try { DragMove(); }
+        finally { _dragging = false; }
+    }
 
     private void CenterLauncher()
     {
@@ -147,7 +158,7 @@ public partial class MainWindow : Window
         int width = (int)Math.Round(ActualWidth * _monitorScale);
         int height = (int)Math.Round(ActualHeight * _monitorScale);
         // Only move: WPF measures the content and owns the window's height.
-        // Keep the monitor chosen when opening, even if the pointer moves away.
+        // Called only on opening; later content changes keep the user's position.
         NativeMethods.SetWindowPos(_handle, IntPtr.Zero,
             _monitorWork.Left + (_monitorWork.Right - _monitorWork.Left - width) / 2,
             _monitorWork.Top + (_monitorWork.Bottom - _monitorWork.Top - height) / 2,
@@ -165,11 +176,12 @@ public partial class MainWindow : Window
             SearchBox.Clear();
             BuildTabs();
             RefreshPrompts();
+            ConfigureLauncherMonitor();
+            Show();
+            NativeMethods.ShowWindow(_handle, 5);
+            UpdateLayout();
+            CenterLauncher();
         }
-        ConfigureLauncherMonitor();
-        Show();
-        NativeMethods.ShowWindow(_handle, 5);
-        CenterLauncher();
         Activate();
         bool foreground = NativeMethods.SetForegroundWindow(_handle);
         System.Diagnostics.Trace.WriteLine($"Shown visible={IsVisible} active={IsActive} foreground={foreground} handle={_handle} currentHandle={new WindowInteropHelper(this).Handle} valid={NativeMethods.IsWindow(_handle)} foregroundWindow={NativeMethods.GetForegroundWindow()} size={ActualWidth}x{ActualHeight} pos={Left},{Top}");
@@ -191,14 +203,14 @@ public partial class MainWindow : Window
         {
             // A placeholder dialog pins both windows while the user switches
             // apps to collect text. Only normal launcher use dismisses on blur.
-            if (!_dialogOpen && !_menuOpen && !_copying && !IsActive) HideLauncher(false);
+            if (!_dialogOpen && !_menuOpen && !_copying && !_dragging && !IsActive) HideLauncher(false);
         }));
     }
     private void OnMenuOpened(object sender, RoutedEventArgs e) => _menuOpen = true;
     private void OnMenuClosed(object sender, RoutedEventArgs e)
     {
         _menuOpen = false;
-        Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() => { if (!_dialogOpen && !IsActive) HideLauncher(false); }));
+        Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() => { if (!_dialogOpen && !_dragging && !IsActive) HideLauncher(false); }));
     }
 
     private void BuildTabs()

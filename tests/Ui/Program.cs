@@ -7,6 +7,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using System.Windows.Interop;
 using QuickPrompt;
 
 internal static class Program
@@ -18,6 +19,18 @@ internal static class Program
     {
         var app = new App { LaunchOnStartup = false };
         app.InitializeComponent();
+        if (Environment.GetCommandLineArgs().Contains("--launcher-drag-check"))
+        {
+            var library = Library.CreateDefault();
+            library.Settings.DocumentsFolder = AppContext.BaseDirectory;
+            var main = new MainWindow(new LibraryStore(Path.Combine(Path.GetTempPath(), "QuickPrompt.WindowDragCheck." + Guid.NewGuid().ToString("N"))), library) { Title = "QuickPrompt — window drag test" };
+            app.MainWindow = main;
+            typeof(MainWindow).GetField("_handle", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(main, new WindowInteropHelper(main).EnsureHandle());
+            // Keep this isolated test window visible while inspecting it through desktop tools.
+            typeof(MainWindow).GetField("_menuOpen", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(main, true);
+            app.Startup += (_, _) => main.ShowLauncher();
+            return app.Run();
+        }
         if (Environment.GetCommandLineArgs().Contains("--category-drag-check"))
         {
             var settings = new Preferences();
@@ -174,6 +187,7 @@ internal static class Program
             RunCategoryOrdering(folder);
             RunDeletionBackups(folder);
             RunNonBilingualPrompts(folder);
+            RunLauncherPlacement(folder);
             Console.WriteLine($"\n{_checks} WPF integration checks passed.");
             return 0;
         }
@@ -458,6 +472,42 @@ internal static class Program
         var newEditor = new PromptEditor(library.Settings.Categories, null, 0);
         Check(((CheckBox)newEditor.FindName("NonBilingualBox")).IsChecked == false, "New prompts default to bilingual-capable mode");
         newEditor.Close();
+    }
+    private static void RunLauncherPlacement(string folder)
+    {
+        var previousContext = SynchronizationContext.Current;
+        SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
+        try
+        {
+            var library = Library.CreateDefault();
+            library.Settings.DocumentsFolder = folder;
+            var main = new MainWindow(new LibraryStore(Path.Combine(folder, "placement")), library);
+            typeof(MainWindow).GetField("_handle", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(main, new WindowInteropHelper(main).EnsureHandle());
+            main.ShowLauncher();
+            main.UpdateLayout();
+            double centeredLeft = main.Left, centeredTop = main.Top, initialHeight = main.ActualHeight;
+            main.Left += 85;
+            main.Top += 55;
+            double movedLeft = main.Left, movedTop = main.Top;
+            ((TextBox)main.FindName("SearchBox")).Text = "No matching prompt for placement test";
+            main.UpdateLayout();
+            Check(main.ActualHeight < initialHeight && Math.Abs(main.Left - movedLeft) < 1 && Math.Abs(main.Top - movedTop) < 1, "Changing search results resizes the launcher without moving its chosen position");
+            main.ShowLauncher();
+            Check(Math.Abs(main.Left - movedLeft) < 1 && Math.Abs(main.Top - movedTop) < 1, "Showing an already-open launcher does not recenter it");
+            ((TextBox)main.FindName("SearchBox")).Clear();
+            main.UpdateLayout();
+            Check(Math.Abs(main.Left - movedLeft) < 1 && Math.Abs(main.Top - movedTop) < 1, "Growing the results keeps the moved launcher in place");
+            main.Hide();
+            main.ShowLauncher();
+            Check(Math.Abs(main.Left - centeredLeft) < 1 && Math.Abs(main.Top - centeredTop) < 1, "Reopening a hidden launcher centers it again instead of remembering its moved position");
+            var header = (Grid)main.FindName("LauncherHeader");
+            var button = (ToggleButton)main.FindName("LanguageToggle");
+            var mouse = new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left) { RoutedEvent = UIElement.MouseLeftButtonDownEvent, Source = button };
+            Invoke(main, "OnHeaderMouseDown", header, mouse);
+            Check(!mouse.Handled && Math.Abs(main.Left - centeredLeft) < 1, "Header buttons keep their normal click behavior instead of starting a window drag");
+            main.Hide();
+        }
+        finally { SynchronizationContext.SetSynchronizationContext(previousContext); }
     }
     private static DragEventArgs MakeDrag(IDataObject data, DependencyObject target, Point point, RoutedEvent routedEvent)
     {

@@ -4,7 +4,7 @@ A minimal Windows prompt launcher built with .NET 10 and WPF. Keep four categori
 
 ## Run
 
-**Recommended:** run `artifacts/installer/QuickPrompt-0.3.1-win-x64.msi`. The installer supports Windows 10 22H2 and Windows 11 on x64 PCs. It includes .NET and installs for the current Windows account without administrator rights or an internet connection. Installation goes to `%LOCALAPPDATA%\Programs\QuickPrompt`. It adds a Start-menu entry, an entry in Installed apps, and startup registration with `--hidden`. The final setup page can start QuickPrompt in the tray immediately.
+**Recommended:** run `artifacts/installer/QuickPrompt-0.3.2-win-x64.msi`. The installer supports Windows 10 22H2 and Windows 11 on x64 PCs. It includes .NET and installs for the current Windows account without administrator rights or an internet connection. Installation goes to `%LOCALAPPDATA%\Programs\QuickPrompt`. It adds a Start-menu entry, an entry in Installed apps, and startup registration with `--hidden`. The final setup page can start QuickPrompt in the tray immediately.
 
 For a portable copy, open `artifacts/QuickPrompt/QuickPrompt.exe`. Closing or dismissing the launcher keeps it running; right-click and choose **Exit** to quit.
 
@@ -16,7 +16,7 @@ For Logi Options+ Actions Ring, use **Open Application → QuickPrompt** after i
 
 **Alt+Space** opens and closes the launcher. If another application (such as Launchy) owns that shortcut, QuickPrompt explains the conflict and uses an available alternative for that session. Close the conflicting application, then open **Settings → General** and select **Alt+Space**. QuickPrompt never closes another launcher automatically.
 
-The compact launcher centers in the work area of the monitor containing your pointer and stays above normal application windows. Its height follows the matching results, with up to six rows before scrolling and a small empty-state message when nothing matches. It stays centered on the same monitor while you search. It hides when you click elsewhere, press Escape, press the shortcut again, or copy a prompt. Windows secure desktops and exclusive full-screen applications control their own display priority.
+The compact launcher centers in the work area of the monitor containing your pointer and stays above normal application windows. Its height follows the matching results, with up to six rows before scrolling and a small empty-state message when nothing matches. Drag the top header to move it anywhere on screen. Searching and changing results keep its position while open; each time you reopen it, it centers again on the monitor containing your pointer. It hides when you click elsewhere, press Escape, press the shortcut again, or copy a prompt. Windows secure desktops and exclusive full-screen applications control their own display priority.
 
 ## Keyboard guide
 
