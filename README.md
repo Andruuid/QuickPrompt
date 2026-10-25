@@ -4,7 +4,7 @@ A minimal Windows prompt launcher built with .NET 10 and WPF. Keep four categori
 
 ## Run
 
-**Recommended:** run `artifacts/installer/QuickPrompt-0.3.2-win-x64.msi`. The installer supports Windows 10 22H2 and Windows 11 on x64 PCs. It includes .NET and installs for the current Windows account without administrator rights or an internet connection. Installation goes to `%LOCALAPPDATA%\Programs\QuickPrompt`. It adds a Start-menu entry, an entry in Installed apps, and startup registration with `--hidden`. The final setup page can start QuickPrompt in the tray immediately.
+**Recommended:** run `artifacts/installer/QuickPrompt-0.3.3-win-x64.msi`. The installer supports Windows 10 22H2 and Windows 11 on x64 PCs. It includes .NET and installs for the current Windows account without administrator rights or an internet connection. Installation goes to `%LOCALAPPDATA%\Programs\QuickPrompt`. It adds a Start-menu entry, an entry in Installed apps, and startup registration with `--hidden`. The final setup page can start QuickPrompt in the tray immediately.
 
 For a portable copy, open `artifacts/QuickPrompt/QuickPrompt.exe`. Closing or dismissing the launcher keeps it running; right-click and choose **Exit** to quit.
 

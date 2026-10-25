@@ -77,9 +77,13 @@ public partial class MainWindow : Window
     {
         using var iconStream = typeof(App).Assembly.GetManifestResourceStream("QuickPrompt.Assets.QuickPrompt.ico")!;
         _tray = new Forms.NotifyIcon { Icon = new System.Drawing.Icon(iconStream), Text = "QuickPrompt", Visible = true };
-        var menu = new Forms.ContextMenuStrip();
+        var menu = new Forms.ContextMenuStrip
+        {
+            Renderer = new Forms.ToolStripProfessionalRenderer(new TrayMenuColors()),
+            ShowImageMargin = false, BackColor = System.Drawing.Color.FromArgb(23, 25, 30),
+            ForeColor = System.Drawing.Color.FromArgb(239, 241, 245)
+        };
         menu.Items.Add("Open QuickPrompt", null, (_, _) => Dispatcher.Invoke(ShowLauncher));
-        menu.Items.Add("New prompt…", null, (_, _) => Dispatcher.Invoke(() => { ShowLauncher(); EditPrompt(null); }));
         menu.Items.Add("Settings…", null, (_, _) => Dispatcher.Invoke(OpenSettings));
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Exit", null, (_, _) => Dispatcher.Invoke(ExitApp));

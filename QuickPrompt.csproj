@@ -8,7 +8,7 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\QuickPrompt.ico</ApplicationIcon>
-    <Version>0.3.2</Version>
+    <Version>0.3.3</Version>
     <Product>QuickPrompt</Product>
     <Description>Prompt and document launcher for Windows</Description>
     <Company>QuickPrompt</Company>

@@ -1,12 +1,11 @@
 <Window x:Class="QuickPrompt.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Style="{StaticResource {x:Type Window}}" Title="QuickPrompt" Width="580" SizeToContent="Height" WindowStyle="None" ResizeMode="NoResize" AllowsTransparency="True" Background="Transparent" ShowInTaskbar="True" Topmost="True" PreviewKeyDown="OnKeyDown" PreviewTextInput="OnTextInput" Deactivated="OnDeactivated" UseLayoutRounding="True">
   <Border Background="{StaticResource Panel}" BorderBrush="#404550" BorderThickness="1" CornerRadius="12" Padding="14,10,14,8">
     <Border.ContextMenu><ContextMenu Opened="OnMenuOpened" Closed="OnMenuClosed">
-      <MenuItem Header="New prompt…" InputGestureText="Ctrl+N" Click="OnNew"/>
       <MenuItem Header="Edit selected prompt…" InputGestureText="F2" Click="OnEdit"/>
       <MenuItem Header="Refresh documents" InputGestureText="F5" Click="OnRefreshDocuments"/>
-      <Separator/>
+      <Separator Style="{StaticResource MenuSeparator}"/>
       <MenuItem Header="Settings…" InputGestureText="Ctrl+," Click="OnSettings"/>
-      <Separator/><MenuItem Header="Exit" Click="OnExit"/>
+      <Separator Style="{StaticResource MenuSeparator}"/><MenuItem Header="Exit" Click="OnExit"/>
     </ContextMenu></Border.ContextMenu>
     <Grid>
       <Grid.RowDefinitions><RowDefinition Height="28"/><RowDefinition Height="46"/><RowDefinition Height="40"/><RowDefinition Height="Auto"/><RowDefinition Height="28"/></Grid.RowDefinitions>
