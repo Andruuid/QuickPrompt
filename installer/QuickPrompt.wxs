@@ -1,0 +1,59 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package Name="QuickPrompt" Manufacturer="QuickPrompt" Version="$(var.Version)" Language="1033"
+           UpgradeCode="AF4094B3-373F-4F1A-9AA4-F282099A9C87" Scope="perUser" InstallerVersion="500">
+    <SummaryInformation Description="QuickPrompt - prompt and document launcher"/>
+    <MajorUpgrade DowngradeErrorMessage="A newer version of QuickPrompt is already installed." Schedule="afterInstallInitialize"/>
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high"/>
+    <Property Id="WINDOWSBUILD">
+      <RegistrySearch Id="ReadWindowsBuild" Root="HKLM" Key="SOFTWARE\Microsoft\Windows NT\CurrentVersion" Name="CurrentBuildNumber" Type="raw" Bitness="always64"/>
+    </Property>
+    <Launch Condition="Installed OR (VersionNT64 AND WINDOWSBUILD &gt;= 19045)" Message="QuickPrompt requires Windows 10 22H2 or later (64-bit)."/>
+    <Icon Id="QuickPromptIcon" SourceFile="$(var.Root)\Assets\QuickPrompt.ico"/>
+    <Property Id="ARPPRODUCTICON" Value="QuickPromptIcon"/>
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Start QuickPrompt in the system tray"/>
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1"/>
+    <Property Id="WIXUI_EXITDIALOGOPTIONALTEXT" Value="Press Alt+Space to open QuickPrompt. Your prompts stay on this PC."/>
+    <CustomAction Id="LaunchQuickPrompt" FileRef="QuickPromptExe" ExeCommand="--hidden" Return="asyncNoWait" Impersonate="yes"/>
+    <ui:WixUI Id="WixUI_Minimal"/>
+    <UI>
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchQuickPrompt" Order="1"
+               Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed"/>
+    </UI>
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.Root)\installer\InstallInfo.rtf"/>
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="UserProgramsFolder" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="QuickPrompt">
+          <Component Id="QuickPromptApplication" Guid="A07F6238-A7B1-4A56-967F-716337213B6D">
+            <File Id="QuickPromptExe" Source="$(var.PublishDir)\QuickPrompt.exe"/>
+            <File Id="QuickPromptReadme" Source="$(var.Root)\README.md"/>
+            <File Id="DotNetLicense" Source="$(var.PublishDir)\DOTNET-LICENSE.txt"/>
+            <File Id="DotNetNotices" Source="$(var.PublishDir)\DOTNET-THIRD-PARTY-NOTICES.txt"/>
+            <File Id="DesktopLicense" Source="$(var.PublishDir)\WINDOWSDESKTOP-LICENSE.txt"/>
+            <RegistryValue Root="HKCU" Key="Software\QuickPrompt" Name="InstallDirectory" Value="[INSTALLFOLDER]" Type="string" KeyPath="yes"/>
+            <RegistryValue Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\App Paths\QuickPrompt.exe" Value="[#QuickPromptExe]" Type="string"/>
+            <RegistryValue Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\App Paths\QuickPrompt.exe" Name="Path" Value="[INSTALLFOLDER]" Type="string"/>
+            <Shortcut Id="QuickPromptStartMenu" Directory="ProgramMenuFolder" Name="QuickPrompt" Description="Search prompts, documents and shortcuts"
+                      Target="[#QuickPromptExe]" WorkingDirectory="INSTALLFOLDER" Icon="QuickPromptIcon" Advertise="no">
+              <ShortcutProperty Key="System.AppUserModel.ID" Value="QuickPrompt.Desktop"/>
+            </Shortcut>
+            <RemoveFolder Id="RemoveInstallFolder" Directory="INSTALLFOLDER" On="uninstall"/>
+            <RemoveFolder Id="RemoveUserProgramsFolder" Directory="UserProgramsFolder" On="uninstall"/>
+          </Component>
+          <Component Id="QuickPromptStartup" Guid="53C536AA-16CD-4E98-8425-FC1C11997CA6">
+            <RegistryValue Root="HKCU" Key="Software\QuickPrompt" Name="StartupInstalled" Value="1" Type="integer" KeyPath="yes"/>
+            <Shortcut Id="QuickPromptStartupShortcut" Directory="StartupFolder" Name="QuickPrompt (Autostart)"
+                      Description="Start QuickPrompt in the system tray" Target="[#QuickPromptExe]" Arguments="--hidden"
+                      WorkingDirectory="INSTALLFOLDER" Icon="QuickPromptIcon" Advertise="no"/>
+          </Component>
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder"/>
+    <StandardDirectory Id="StartupFolder"/>
+    <Feature Id="MainFeature" Title="QuickPrompt" Level="1">
+      <ComponentRef Id="QuickPromptApplication"/>
+      <ComponentRef Id="QuickPromptStartup"/>
+    </Feature>
+  </Package>
+</Wix>

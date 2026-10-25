@@ -1,0 +1,11 @@
+<Window x:Class="QuickPrompt.MissingLanguageWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Style="{StaticResource {x:Type Window}}" Title="Prompt not in this language" Width="490" SizeToContent="Height" ResizeMode="NoResize" ShowInTaskbar="False">
+  <StackPanel Margin="24">
+    <TextBlock Text="Prompt not in this language" FontSize="21" FontWeight="SemiBold" Foreground="#FFD59A"/>
+    <TextBlock x:Name="Explanation" TextWrapping="Wrap" Foreground="{StaticResource Muted}" Margin="0,14,0,20"/>
+    <WrapPanel HorizontalAlignment="Right">
+      <Button Content="Cancel" IsCancel="True" Margin="0,0,8,0"/>
+      <Button x:Name="EditNowButton" Content="Edit now" Click="OnEditNow" Margin="0,0,8,0"/>
+      <Button x:Name="UseOtherButton" Content="Use English" Click="OnUseOther" Style="{StaticResource PrimaryButton}"/>
+    </WrapPanel>
+  </StackPanel>
+</Window>

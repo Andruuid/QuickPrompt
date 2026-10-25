@@ -1,0 +1,4 @@
+<WixLocalization Culture="en-us" xmlns="http://wixtoolset.org/schemas/v4/wxl">
+  <String Id="WelcomeEulaDlgTitle" Value="{\WixUI_Font_Title}Install QuickPrompt"/>
+  <String Id="WelcomeEulaDlgLicenseAcceptedCheckBox" Value="I have read the installation information"/>
+</WixLocalization>

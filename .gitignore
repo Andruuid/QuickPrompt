@@ -1,0 +1,10 @@
+bin/
+obj/
+artifacts/
+.vs/
+*.user
+.tools/
+.wix/
+bak/
+prompts.json
+prompts.json.*
