@@ -25,6 +25,7 @@ public partial class SettingsWindow : Window
     public SettingsWindow(Preferences settings, string? activeHotkey, string path)
     {
         InitializeComponent();
+        WindowTheme.UseDarkTitleBar(this);
         VersionLabel.Text = $"Version {typeof(App).Assembly.GetName().Version!.ToString(3)} · A small home for your best prompts.";
         _original = settings;
         _backupDirectory = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(path))!, "bak");

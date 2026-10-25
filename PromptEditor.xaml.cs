@@ -24,6 +24,7 @@ public partial class PromptEditor : Window
         };
         _language = language == "de" ? "de" : "en";
         InitializeComponent();
+        WindowTheme.UseDarkTitleBar(this);
         _original = original;
         CategoryBox.ItemsSource = (categoryOrder ?? [0, 1, 2, 3]).Select(id => new KeyValuePair<int, string>(id, categories[id])).ToArray();
         CategoryBox.DisplayMemberPath = "Value";

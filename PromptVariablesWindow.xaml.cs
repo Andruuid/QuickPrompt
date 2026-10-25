@@ -23,6 +23,7 @@ public partial class PromptVariablesWindow : Window
         _names = PromptTemplate.GetNames(content);
         if (_names.Count == 0) throw new ArgumentException("The prompt has no placeholders.", nameof(content));
         InitializeComponent();
+        WindowTheme.UseDarkTitleBar(this);
         ShowCurrent();
         Loaded += (_, _) => ValueBox.Focus();
         Closing += (_, e) => { if (_submitting) e.Cancel = true; };
