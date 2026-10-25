@@ -21,7 +21,7 @@ internal static class Program
         app.InitializeComponent();
         if (Environment.GetCommandLineArgs().Contains("--launcher-drag-check"))
         {
-            var library = Library.CreateDefault();
+            var library = ExampleLibrary.Create();
             library.Settings.DocumentsFolder = AppContext.BaseDirectory;
             var main = new MainWindow(new LibraryStore(Path.Combine(Path.GetTempPath(), "QuickPrompt.WindowDragCheck." + Guid.NewGuid().ToString("N"))), library) { Title = "QuickPrompt — window drag test" };
             app.MainWindow = main;
@@ -33,7 +33,7 @@ internal static class Program
         }
         if (Environment.GetCommandLineArgs().Contains("--category-drag-check"))
         {
-            var example = Library.CreateDefault();
+            var example = ExampleLibrary.Create();
             var settings = example.Settings;
             var window = new SettingsWindow(settings, settings.Hotkey, "Isolated category settings test", example.Prompts)
             {
@@ -190,6 +190,8 @@ internal static class Program
             RunNonBilingualPrompts(folder);
             RunLauncherPlacement(folder);
             RunCategoryDeletion(folder);
+            var shippedSeed = Library.CreateDefault();
+            Check(shippedSeed.Prompts.Count == 6 && shippedSeed.Settings.CategoryOrder.SequenceEqual(new[] { 2, 0, 1 }), "Distributed WPF assembly embeds the captured seed library");
             Console.WriteLine($"\n{_checks} WPF integration checks passed.");
             return 0;
         }
@@ -323,7 +325,7 @@ internal static class Program
         if (error is not null) throw error;
         Check(saved!.Language == "de" && saved.LastCategory == 2, "Saving category settings retains language and last selected category");
 
-        var library = Library.CreateDefault();
+        var library = ExampleLibrary.Create();
         library.Settings = saved;
         var main = new MainWindow(new LibraryStore(Path.Combine(folder, "order")), library);
         main.Show();
@@ -481,7 +483,7 @@ internal static class Program
         SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
         try
         {
-            var library = Library.CreateDefault();
+            var library = ExampleLibrary.Create();
             library.Settings.DocumentsFolder = folder;
             var main = new MainWindow(new LibraryStore(Path.Combine(folder, "placement")), library);
             typeof(MainWindow).GetField("_handle", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(main, new WindowInteropHelper(main).EnsureHandle());
@@ -513,7 +515,7 @@ internal static class Program
     }
     private static void RunCategoryDeletion(string folder)
     {
-        var library = Library.CreateDefault();
+        var library = ExampleLibrary.Create();
         library.Settings.LastCategory = 2;
         var store = new LibraryStore(Path.Combine(folder, "category-deletion"));
         store.Save(library);
@@ -584,7 +586,7 @@ internal static class Program
         Check((int)typeof(MainWindow).GetField("_category", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(emptyMain)! == LauncherSearch.DocumentsTab, "Documents-only keyboard navigation remains valid");
         emptyMain.Hide();
 
-        var blocked = Library.CreateDefault();
+        var blocked = ExampleLibrary.Create();
         var blockedStore = new LibraryStore(Path.Combine(folder, "blocked-category"));
         blockedStore.Save(blocked);
         File.WriteAllText(blockedStore.BackupDirectory, "Folder blocked");

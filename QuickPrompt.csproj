@@ -8,7 +8,7 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\QuickPrompt.ico</ApplicationIcon>
-    <Version>0.4.0</Version>
+    <Version>0.4.1</Version>
     <Product>QuickPrompt</Product>
     <Description>Prompt and document launcher for Windows</Description>
     <Company>QuickPrompt</Company>
@@ -16,5 +16,6 @@
   <ItemGroup>
     <Compile Remove="tests\**\*.cs" />
     <EmbeddedResource Include="Assets\QuickPrompt.ico" />
+    <EmbeddedResource Include="Assets\SeedLibrary.json" LogicalName="QuickPrompt.Assets.SeedLibrary.json" />
   </ItemGroup>
 </Project>

@@ -7,4 +7,5 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup><ProjectReference Include="..\..\QuickPrompt.csproj" /></ItemGroup>
+  <ItemGroup><Compile Include="..\ExampleLibrary.cs" Link="ExampleLibrary.cs" /></ItemGroup>
 </Project>

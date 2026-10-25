@@ -7,7 +7,7 @@ void Check(bool condition, string name)
     if (!condition) throw new Exception("FAIL: " + name);
     Console.WriteLine("PASS: " + name); checks++;
 }
-var library = Library.CreateDefault();
+var library = ExampleLibrary.Create();
 string template = "Read {FileName}, explain {Topic}, then revisit {FileName}.";
 Check(PromptTemplate.GetNames(template).SequenceEqual(new[] { "FileName", "Topic" }), "Placeholders follow first appearance and repeated names are asked once");
 string literalBraces = "{fileName} {File Name} {File_Name} {File1} {} {{FileName}} {\"Topic\": 1} {\nTopic\n} { Topic }";
@@ -86,7 +86,7 @@ try
     store.Save(legacy);
     var saved = store.Load();
     Check(saved.Settings.Language == "de" && saved.Prompts[1].ContentDe == germanOnly.ContentDe && saved.Prompts[1].Content == "", "Selected language and exact German-only content survive restart");
-    var bilingual = Library.CreateDefault();
+    var bilingual = ExampleLibrary.Create();
     Check(bilingual.Prompts.All(p => p.HasLanguage("en") && p.HasLanguage("de") && p.HasValidTranslations()), "All nine new example prompts include complete English and German versions");
     bilingual.Settings.Language = "de";
     var result = LauncherSearch.Find(bilingual, [], 0, "summar").Single();
@@ -122,7 +122,7 @@ try
     Check(recursive.Items.Count == 11, "Subfolders are included when enabled");
     Check(recursive.Items.Count(p => p.Name == "Report.PDF") == 2 && recursive.Items.Select(p => p.Identity).Distinct().Count() == 11, "Duplicate filenames retain distinct paths");
     Check(recursive.Items.Any(p => p.Description.Contains("Nested")), "Subfolder path distinguishes duplicate filenames");
-    var defaults = Library.CreateDefault();
+    var defaults = ExampleLibrary.Create();
     Check(defaults.Settings.DocumentsFolder == @"C:\Launchy", "Default document directory is C:\\Launchy");
     Check(LauncherSearch.Find(defaults, recursive.Items, 0, "report pdf").Count == 2, "Filename search finds documents from a prompt tab");
     Check(LauncherSearch.Find(defaults, recursive.Items, 4, "").Count == 11, "Documents tab lists all indexed files without a query");
@@ -155,7 +155,7 @@ try
 {
     var defaults = JsonSerializer.Deserialize<Preferences>("{}")!;
     Check(defaults.CategoryOrder.SequenceEqual(new[] { 0, 1, 2, 3 }), "Existing settings keep the original category order");
-    var ordered = Library.CreateDefault();
+    var ordered = ExampleLibrary.Create();
     var originalMembership = ordered.Prompts.ToDictionary(p => p.Id, p => p.Category);
     ordered.Settings.CategoryOrder = [2, 0, 3, 1];
     ordered.Settings.LastCategory = 3;
@@ -228,7 +228,7 @@ try
     Check(Directory.GetFiles(store.BackupDirectory, "*.tmp").Length == 0, "Successful backups leave only complete final files");
 
     var blockedStore = new LibraryStore(Path.Combine(backupDirectory, "blocked"));
-    var blocked = Library.CreateDefault();
+    var blocked = ExampleLibrary.Create();
     blockedStore.Save(blocked);
     string savedBefore = File.ReadAllText(blockedStore.FilePath);
     File.WriteAllText(blockedStore.BackupDirectory, "A file blocks creation of the backup folder");
@@ -238,7 +238,7 @@ try
     Check(rejected && File.ReadAllText(blockedStore.FilePath) == savedBefore && blockedStore.Load().Prompts.Count == 9, "A failed backup blocks deletion and leaves the saved library untouched");
 
     var invalidStore = new LibraryStore(Path.Combine(backupDirectory, "invalid"));
-    var invalid = Library.CreateDefault();
+    var invalid = ExampleLibrary.Create();
     invalidStore.Save(invalid);
     invalid.Prompts[0].Content = "";
     invalid.Prompts[0].ContentDe = "";
@@ -312,7 +312,7 @@ finally { if (Directory.Exists(sharedDirectory)) Directory.Delete(sharedDirector
 string categoryDirectory = Path.Combine(Path.GetTempPath(), "QuickPrompt.CategoryDeletion.Tests." + Guid.NewGuid().ToString("N"));
 try
 {
-    var categoryLibrary = Library.CreateDefault();
+    var categoryLibrary = ExampleLibrary.Create();
     categoryLibrary.Settings.LastCategory = 2;
     categoryLibrary.Prompts.Single(p => p.Name == "Review code").NonBilingual = true;
     categoryLibrary.Prompts.Single(p => p.Name == "Review code").ContentDe = "";
@@ -346,7 +346,7 @@ try
     store.ApplySettings(loaded, settings);
     Check(store.Load().Settings.Categories[0] == "Fresh" && store.Load().Prompts.Count == 0, "Reusing a deleted category slot never resurrects its old prompts");
 
-    var blocked = Library.CreateDefault();
+    var blocked = ExampleLibrary.Create();
     var blockedStore = new LibraryStore(Path.Combine(categoryDirectory, "blocked"));
     blockedStore.Save(blocked);
     var oldSettings = blocked.Settings;
@@ -371,4 +371,40 @@ try
     Check(emptyBackup.RootElement.GetProperty("RemovedCategories")[0].GetProperty("Prompts").GetArrayLength() == 0, "Even an empty deleted category receives a permanent backup");
 }
 finally { if (Directory.Exists(categoryDirectory)) Directory.Delete(categoryDirectory, true); }
+string seedDirectory = Path.Combine(Path.GetTempPath(), "QuickPrompt.Seed.Tests." + Guid.NewGuid().ToString("N"));
+try
+{
+    var seedStore = new LibraryStore(seedDirectory);
+    var fresh = seedStore.Load();
+    Check(fresh.Prompts.Count == 6 && fresh.Settings.CategoryOrder.SequenceEqual(new[] { 2, 0, 1 }) && fresh.Settings.Categories.SequenceEqual(new[] { "General", "Workflows", "Code", "" }), "A fresh installation starts with the six saved prompts and current category names/order");
+    Check(fresh.Settings.Language == "en" && fresh.Settings.Hotkey == "Alt+Space" && fresh.Settings.DocumentsFolder == @"C:\Launchy" && fresh.Settings.LastCategory == 2, "Seed preserves standard installation preferences and opens the first seeded category");
+    using var seedStream = typeof(Library).Assembly.GetManifestResourceStream("QuickPrompt.Assets.SeedLibrary.json")!;
+    using var seedDocument = JsonDocument.Parse(seedStream);
+    Check(seedDocument.RootElement.GetProperty("Prompts").EnumerateArray().All(expected =>
+    {
+        var prompt = fresh.Prompts.Single(p => p.Id == expected.GetProperty("Id").GetGuid());
+        return prompt.Category == expected.GetProperty("Category").GetInt32()
+            && prompt.Name == expected.GetProperty("Name").GetString()
+            && prompt.Description == expected.GetProperty("Description").GetString()
+            && prompt.Content == expected.GetProperty("Content").GetString()
+            && prompt.ContentDe == expected.GetProperty("ContentDe").GetString()
+            && prompt.NonBilingual == expected.GetProperty("NonBilingual").GetBoolean();
+    }), "First-run persistence preserves every seeded ID, title, description, exact language body, and non-bilingual flag");
+    Check(File.Exists(seedStore.FilePath) && !Directory.Exists(seedStore.BackupDirectory), "First launch persists the seed once without creating a deletion backup");
+    Check(fresh.Prompts.Count(p => p.HasLanguage("en") && p.HasLanguage("de")) == 3 && fresh.Prompts.Count(p => p.NonBilingual) == 1, "Seed retains the captured bilingual availability and single-language opt-out");
+    fresh.Prompts.RemoveAt(0);
+    fresh.Settings.Categories[1] = "My workflows";
+    seedStore.Save(fresh);
+    var restarted = seedStore.Load();
+    Check(restarted.Prompts.Count == 5 && restarted.Settings.Categories[1] == "My workflows", "Restarting never replaces an existing edited library with the seed");
+    restarted.Prompts.Clear();
+    seedStore.Save(restarted);
+    Check(seedStore.Load().Prompts.Count == 0, "An intentionally emptied library is never repopulated from seed data");
+    var firstDefaults = Library.CreateDefault();
+    var secondDefaults = Library.CreateDefault();
+    firstDefaults.Prompts[0].Content = "Mutated default";
+    firstDefaults.Settings.Categories[2] = "Changed";
+    Check(secondDefaults.Prompts[0].Content != "Mutated default" && secondDefaults.Settings.Categories[2] == "Code", "Each new installation receives independent prompt objects and category arrays");
+}
+finally { if (Directory.Exists(seedDirectory)) Directory.Delete(seedDirectory, true); }
 Console.WriteLine($"\n{checks} checks passed.");

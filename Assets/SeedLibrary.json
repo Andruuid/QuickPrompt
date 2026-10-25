@@ -1,0 +1,73 @@
+{
+  "Version": 1,
+  "Settings": {
+    "Categories": [
+      "General",
+      "Workflows",
+      "Code",
+      ""
+    ],
+    "CategoryOrder": [
+      2,
+      0,
+      1
+    ],
+    "LastCategory": 2
+  },
+  "Prompts": [
+    {
+      "Id": "09ee8867-b89d-4924-845e-9bc9673d7b35",
+      "Category": 2,
+      "Name": "CreatePrompt For Implement SlicePlan",
+      "Description": "Create Prompt for Implementation of Slice Plan with Subagents",
+      "Content": "Create a good prompt that i can paste into one opus 5.5 context whitch acts as the coordinator, this coordinator context will then use sonnet 5.5 subagents \r\nto implement the slices of XXX and report back. the coordinator will do everything and only talks to me if questions came up or when its done. The implementing sub agentsreport back to the coordinator which reviews the code and then starts new subagents.\r\n",
+      "ContentDe": "",
+      "NonBilingual": false
+    },
+    {
+      "Id": "b81cfe4e-e1c8-484c-9bc0-8fef27923438",
+      "Category": 0,
+      "Name": "Anki",
+      "Description": "creates new cards for a document",
+      "Content": "read file: {FileName} and then make anki questions and answers. Do around { QuestionNumber} Questions per Chapter. make them nicely formated especially the answers they can have additional context to explain the answer, with infographics colors etc whatever helps illustrate the answer. The Answer should be very thorough so that i can learn the question only from reading the answer and understand the context. your task is to create a file i can import in anki.  here are some basic rules:\r\n\r\n1. Use pipe | as the separator between question and answer\r\n2. Never use pipe in any text content\r\n3. Use <br> for newlines\r\n4. Use real HTML tags like <br>, <b>, <div>, <span> for formatting\r\n5. Only use a newline to separate one note (question/answer pair) from the next\r\n6. Generate the Anki cards in a code block for easy copy paste\r\n7. Check every line has exactly 1 pipe and no formatting errors",
+      "ContentDe": "Lies die Datei {FileName} und erstelle daraus Fragen und Antworten für Anki. Erstelle ungefähr {QuestionNumber} Fragen pro Kapitel.\r\n\r\nGestalte die Karten übersichtlich und ansprechend, insbesondere die Antworten. Ergänze bei Bedarf zusätzlichen Kontext, Infografiken, Farben und andere visuelle Elemente, die zum Verständnis beitragen.\r\n\r\nDie Antworten sollen sehr ausführlich sein, sodass ich allein durch das Lesen der Antwort den abgefragten Inhalt lernen und die Zusammenhänge verstehen kann.\r\n\r\nDeine Aufgabe ist es, eine Datei zu erstellen, die ich in Anki importieren kann. Beachte dabei folgende Grundregeln:\r\n\r\n1. Verwende den senkrechten Strich `|` als Trennzeichen zwischen Frage und Antwort.\r\n2. Verwende innerhalb der Textinhalte niemals einen senkrechten Strich.\r\n3. Verwende `<br>` für Zeilenumbrüche innerhalb einer Frage oder Antwort.\r\n4. Verwende echte HTML-Tags wie `<br>`, `<b>`, `<div>` und `<span>` zur Formatierung.\r\n5. Verwende einen tatsächlichen Zeilenumbruch ausschließlich, um eine Karte (ein Frage-Antwort-Paar) von der nächsten zu trennen.\r\n6. Gib die Anki-Karten in einem Codeblock aus, damit sie sich einfach kopieren und einfügen lassen.\r\n7. Prüfe, dass jede Zeile genau einen senkrechten Strich als Trennzeichen enthält und keine Formatierungsfehler aufweist.",
+      "NonBilingual": false
+    },
+    {
+      "Id": "29085db7-dadd-46dd-a964-8a38ca6ac5cd",
+      "Category": 0,
+      "Name": "Summarize simple",
+      "Description": "The main points, decisions, and next steps",
+      "Content": "Summarize the following text in plain language. Include the key points, decisions, and actionable next steps. Preserve important details and flag uncertainty.\n\nText: {Text}\n",
+      "ContentDe": "Fasse den folgenden Text in einfacher, verständlicher Sprache zusammen. Berücksichtige die wichtigsten Punkte, Entscheidungen und konkreten nächsten Schritte. Bewahre wichtige Details und kennzeichne Unsicherheiten.\r\n\r\nText: {Text}",
+      "NonBilingual": false
+    },
+    {
+      "Id": "69416555-69c9-4ed4-bd9b-4d1165fefb9b",
+      "Category": 2,
+      "Name": "Simple Code Review",
+      "Description": "Review Code general simlpe",
+      "Content": "Review this code like a strict senior engineer. List only real problems (bugs, edge cases, security, performance, readability) ordered by severity. For each: what's wrong, why it matters, and the fix. Skip praise and nitpicks. Tell me if its a go or no go for Merge at the end.",
+      "ContentDe": "",
+      "NonBilingual": false
+    },
+    {
+      "Id": "dab99279-bbda-4503-9c2f-93ddf6a9474e",
+      "Category": 2,
+      "Name": "Review .NET, Blazor and MongoDb",
+      "Description": "specific for blazor, mongodb",
+      "Content": "Review {Target}. You did NOT write this code — review it skeptically, as a senior .NET reviewer.\n\nCheck every changed file against CLAUDE.md, with special focus on:\n\nBlazor\n\nRender mode correct and explicit? Anything interactive on a static SSR page?\nDouble execution under prerendering (OnInitializedAsync side effects, duplicate DB calls)?\nJS interop outside OnAfterRenderAsync(firstRender)?\nMutated [Parameter]s, missing @key, Action instead of EventCallback?\nMissing Dispose for subscriptions/timers/DotNetObjectReference → memory leaks per circuit?\nStateHasChanged misuse, unnecessary re-renders, async void?\nCircuit-lifetime issues with scoped services; shared mutable state in singletons?\nComponents too large; logic that belongs in a service?\n\nMongoDB\n\nClient/collection lifetimes correct?\nQueries without index support? Unbounded reads? Missing projection?\nGuid/ObjectId/decimal/DateTime serialization consistent with conventions?\nReplace where a partial $set update was intended (lost-update risk)?\nRace conditions: read-modify-write without filter on version/state?\nCancellationToken passed through?\n\nGeneral\n\nNullable warnings suppressed with ! without justification?\nOver-engineering: abstractions, interfaces, or layers not required by the task?\nDead code, leftover TODOs, debug output.\nMissing tests for new logic (bUnit for components, Testcontainers for repositories).\n\nOutput: a list grouped as Must fix / Should fix / Nitpick, each with file:line and a one-line reason. No praise, no summary of what the code does. If nothing is wrong in a category, write \"none\". Do not edit files.",
+      "ContentDe": "",
+      "NonBilingual": true
+    },
+    {
+      "Id": "f54fb029-a743-465e-9c18-a5ad8ce56aef",
+      "Category": 0,
+      "Name": "Summarize Transcript",
+      "Description": "Youtube Transcript Summarizer",
+      "Content": "Summarize the YouTube transcript below in clear, concise English.\n\nUse this structure:\n1. Synopsis — 2–4 sentences explaining the main topic and message.\n2. Chapters — divide the content into logical sections with descriptive titles. Include starting timestamps only if provided in the transcript. Add 2–5 bullets per chapter covering key ideas, examples, and useful details.\n3. Key takeaways — 3–5 practical insights or lessons.\n4. Action steps — include only if the video offers actionable advice.\n\nRemove filler, repetition, and promotions. Preserve important facts and nuance. Don’t invent information or timestamps.\n\nTranscript:\n{Transcript}",
+      "ContentDe": "Fasse das folgende YouTube-Transkript klar und prägnant auf Deutsch zusammen.\n\nVerwende diese Struktur:\n1. Kurzüberblick — 2–4 Sätze zum Hauptthema und zur zentralen Aussage.\n2. Kapitel — gliedere den Inhalt in sinnvolle Abschnitte mit aussagekräftigen Titeln. Übernimm Startzeitstempel nur, wenn sie im Transkript vorhanden sind. Ergänze je Kapitel 2–4 Stichpunkte mit zentralen Ideen, Beispielen und hilfreichen Details.\n3. Wichtigste Erkenntnisse — 3–5 praktische Einsichten oder Lektionen.\n4. Handlungsschritte — nur, wenn das Video konkrete Empfehlungen enthält.\n\nEntferne Füllwörter, Wiederholungen und Werbung. Bewahre wichtige Fakten und Differenzierungen. Erfinde keine Informationen oder Zeitstempel.\n\nTranskript:\n{Transcript}",
+      "NonBilingual": false
+    }
+  ]
+}

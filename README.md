@@ -4,7 +4,7 @@ A minimal Windows prompt launcher built with .NET 10 and WPF. Keep up to four ca
 
 ## Run
 
-**Recommended:** run `artifacts/installer/QuickPrompt-0.4.0-win-x64.msi`. The installer supports Windows 10 22H2 and Windows 11 on x64 PCs. It includes .NET and installs for the current Windows account without administrator rights or an internet connection. Installation goes to `%LOCALAPPDATA%\Programs\QuickPrompt`. It adds a Start-menu entry, an entry in Installed apps, and startup registration with `--hidden`. The final setup page can start QuickPrompt in the tray immediately.
+**Recommended:** run `artifacts/installer/QuickPrompt-0.4.1-win-x64.msi`. The installer supports Windows 10 22H2 and Windows 11 on x64 PCs. It includes .NET and installs for the current Windows account without administrator rights or an internet connection. Installation goes to `%LOCALAPPDATA%\Programs\QuickPrompt`. It adds a Start-menu entry, an entry in Installed apps, and startup registration with `--hidden`. The final setup page can start QuickPrompt in the tray immediately.
 
 For a portable copy, open `artifacts/QuickPrompt/QuickPrompt.exe`. Closing or dismissing the launcher keeps it running; right-click and choose **Exit** to quit.
 
@@ -59,7 +59,7 @@ The prompt editor has **EN · English** and **DE · Deutsch** tabs for the body 
 
 When a version is missing, **Prompt not in this language** appears before anything is copied. Choose **Use English** or **Use German** to acknowledge and copy the available version, or **Cancel** to keep the clipboard unchanged. **Edit now** opens the missing language with its prompt field focused for pasting. After saving, press Enter on the prompt to use the new version.
 
-Existing prompt bodies are never automatically translated. On the first launch of this version, separate legacy German titles and descriptions are removed after a permanent JSON/text backup. Existing English labels become the shared labels; if a legacy prompt has only German labels, those are preserved as shared labels so it remains identifiable. New libraries include English and German bodies for all nine example prompts, each with a shared English title and description.
+Existing prompt bodies are never automatically translated. On the first launch of this version, separate legacy German titles and descriptions are removed after a permanent JSON/text backup. Existing English labels become the shared labels; if a legacy prompt has only German labels, those are preserved as shared labels so it remains identifiable. New libraries use the saved seed data, including the language versions and non-bilingual flags available at capture time.
 
 ## Documents
 
@@ -77,7 +77,7 @@ Before saving a prompt deletion, addition, edit, or category change, QuickPrompt
 
 Open the folder through **Settings → About → Open backups**. To recover an individual prompt, open its text backup and paste the English/German sections into a new prompt. To restore an entire library, exit QuickPrompt from its tray menu, then save the JSON backup's `Library` object as `prompts.json` (keep a copy of the current file first). The JSON wrapper contains backup metadata and must not be copied wholesale over the live library. Category deletion archives the removed category explicitly under `RemovedCategories`, including all its prompts and language versions, in addition to the full previous library.
 
-The first launch includes nine editable example prompts. MSI installations start automatically in the tray at sign-in. Portable copies can be launched with `--hidden` to start in the tray; a second hidden launch does not open an existing instance.
+A fresh installation starts with the six prompts and three active categories captured in `Assets/SeedLibrary.json`: Code, General, and Workflows, in that order. The JSON is embedded in the executable and used only when `prompts.json` does not exist; upgrades, restarts, and intentionally empty libraries keep their saved data. The seed includes prompt IDs, shared titles/descriptions, exact English/German text, category membership, category order, and non-bilingual flags. Fresh installs keep English, Alt+Space, and the default document folder; personal device preferences are not copied into the seed. MSI installations start automatically in the tray at sign-in. Portable copies can be launched with `--hidden` to start in the tray; a second hidden launch does not open an existing instance.
 
 ## Build and verify
 
