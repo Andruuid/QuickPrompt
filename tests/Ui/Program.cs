@@ -33,8 +33,9 @@ internal static class Program
         }
         if (Environment.GetCommandLineArgs().Contains("--category-drag-check"))
         {
-            var settings = new Preferences();
-            var window = new SettingsWindow(settings, settings.Hotkey, "Isolated drag-and-drop test")
+            var example = Library.CreateDefault();
+            var settings = example.Settings;
+            var window = new SettingsWindow(settings, settings.Hotkey, "Isolated category settings test", example.Prompts)
             {
                 Title = "QuickPrompt Settings — drag test",
                 SaveSettings = draft => File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "category-drag-result.json"), System.Text.Json.JsonSerializer.Serialize(draft))
@@ -188,6 +189,7 @@ internal static class Program
             RunDeletionBackups(folder);
             RunNonBilingualPrompts(folder);
             RunLauncherPlacement(folder);
+            RunCategoryDeletion(folder);
             Console.WriteLine($"\n{_checks} WPF integration checks passed.");
             return 0;
         }
@@ -508,6 +510,103 @@ internal static class Program
             main.Hide();
         }
         finally { SynchronizationContext.SetSynchronizationContext(previousContext); }
+    }
+    private static void RunCategoryDeletion(string folder)
+    {
+        var library = Library.CreateDefault();
+        library.Settings.LastCategory = 2;
+        var store = new LibraryStore(Path.Combine(folder, "category-deletion"));
+        store.Save(library);
+        var settings = new SettingsWindow(library.Settings, "Alt+Space", store.FilePath, library.Prompts);
+        settings.Show();
+        ((TabItem)settings.FindName("CategoriesTab")).IsSelected = true;
+        settings.UpdateLayout();
+        var list = (ListBox)settings.FindName("CategoryList");
+        var code = (SettingsWindow.CategoryRow)list.Items[2];
+        bool confirmedCount = false;
+        settings.ConfirmDeleteCategory = (name, count) => { confirmedCount = name == "Code" && count == 2; return false; };
+        Invoke(settings, "OnDeleteCategory", new Button { DataContext = code }, new RoutedEventArgs());
+        Check(confirmedCount && list.Items.Count == 4, "Delete-category confirmation receives the correct category name and prompt count; Cancel keeps the row");
+        settings.ConfirmDeleteCategory = (_, _) => true;
+        Invoke(settings, "OnDeleteCategory", new Button { DataContext = code }, new RoutedEventArgs());
+        Check(list.Items.Count == 3 && library.Prompts.Count == 9 && library.Settings.CategoryOrder.Length == 4 && !Directory.Exists(store.BackupDirectory), "Confirmed deletion remains a draft until Save settings");
+        Check(Label(settings, "CategoryChangeNote").Text.Contains("2 prompt") && !GetButton(settings, "AddCategoryButton").IsEnabled, "Settings shows pending prompt deletions and prevents premature slot reuse");
+        SavePreview(settings, "category-deletion-settings.png");
+        settings.Close();
+        Check(store.Load().Prompts.Count == 9 && store.Load().Settings.CategoryOrder.Length == 4, "Cancelling settings discards category deletion without touching saved data");
+
+        Exception? error = null;
+        var save = new SettingsWindow(library.Settings, "Alt+Space", store.FilePath, library.Prompts)
+        {
+            ConfirmDeleteCategory = (_, _) => true,
+            SaveSettings = draft => store.ApplySettings(library, draft)
+        };
+        save.Dispatcher.BeginInvoke(new Action(() =>
+        {
+            try
+            {
+                var rows = (ListBox)save.FindName("CategoryList");
+                Invoke(save, "OnDeleteCategory", new Button { DataContext = rows.Items[2] }, new RoutedEventArgs());
+                Invoke(save, "OnSave", save, new RoutedEventArgs());
+            }
+            catch (Exception ex) { error = ex; save.Close(); }
+        }));
+        Check(save.ShowDialog() == true && library.Prompts.Count == 7 && Directory.GetFiles(store.BackupDirectory, "*.json").Length == 1, "Saving category deletion backs up first and commits category and prompt removal together");
+        if (error is not null) throw error;
+        var main = new MainWindow(store, library);
+        main.Show();
+        var tabs = (UniformGrid)main.FindName("CategoryTabs");
+        Check(tabs.Children.Cast<Button>().Select(button => button.Content.ToString()).SequenceEqual(new[] { "General", "Writing", "Research", "Documents" }), "Launcher hides the deleted category and adapts its tab count");
+        Invoke(main, "SwitchCategoryPosition", 2);
+        Check(((ListBox)main.FindName("PromptList")).Items.Cast<LauncherItem>().All(item => item.Prompt?.Category == 3), "Remaining category retains its original prompts without category-number shifts");
+        Invoke(main, "MoveCategorySelection", 1);
+        Check((int)typeof(MainWindow).GetField("_category", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(main)! == LauncherSearch.DocumentsTab, "Tab navigation reaches Documents after the remaining categories");
+        Invoke(main, "MoveCategorySelection", 1);
+        Check((int)typeof(MainWindow).GetField("_category", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(main)! == 0, "Navigation wraps correctly with fewer categories");
+        var editor = new PromptEditor(library.Settings.Categories, library.Prompts.First(p => p.Category == 3), 0, categoryOrder: library.Settings.CategoryOrder);
+        var choices = (ComboBox)editor.FindName("CategoryBox");
+        Check(choices.Items.Count == 3 && (int)choices.SelectedValue == 3, "Editor category dropdown excludes deleted categories and preserves category identity");
+        editor.Close();
+        main.Hide();
+
+        var reopened = new SettingsWindow(library.Settings, "Alt+Space", store.FilePath, library.Prompts);
+        Check(GetButton(reopened, "AddCategoryButton").IsEnabled, "A saved deletion frees a category slot for adding a new category");
+        Invoke(reopened, "OnAddCategory", reopened, new RoutedEventArgs());
+        var newRows = (ListBox)reopened.FindName("CategoryList");
+        Check(newRows.Items.Count == 4 && ((SettingsWindow.CategoryRow)newRows.Items[3]).Id == 2, "New categories reuse free stable IDs without restoring deleted prompts");
+        reopened.Close();
+
+        var empty = new Library { Settings = new Preferences { Categories = ["", "", "", ""], CategoryOrder = [], LastCategory = LauncherSearch.DocumentsTab } };
+        var emptyMain = new MainWindow(new LibraryStore(Path.Combine(folder, "documents-only")), empty);
+        emptyMain.Show();
+        Check(((UniformGrid)emptyMain.FindName("CategoryTabs")).Children.Count == 1 && !GetButton(emptyMain, "NewPromptButton").IsEnabled, "Deleting every prompt category leaves Documents usable and disables new prompts until a category is added");
+        Invoke(emptyMain, "MoveCategorySelection", 1);
+        Check((int)typeof(MainWindow).GetField("_category", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(emptyMain)! == LauncherSearch.DocumentsTab, "Documents-only keyboard navigation remains valid");
+        emptyMain.Hide();
+
+        var blocked = Library.CreateDefault();
+        var blockedStore = new LibraryStore(Path.Combine(folder, "blocked-category"));
+        blockedStore.Save(blocked);
+        File.WriteAllText(blockedStore.BackupDirectory, "Folder blocked");
+        var failedSave = new SettingsWindow(blocked.Settings, "Alt+Space", blockedStore.FilePath, blocked.Prompts)
+        {
+            ConfirmDeleteCategory = (_, _) => true,
+            SaveSettings = draft => blockedStore.ApplySettings(blocked, draft)
+        };
+        failedSave.Dispatcher.BeginInvoke(new Action(() =>
+        {
+            try
+            {
+                var rows = (ListBox)failedSave.FindName("CategoryList");
+                Invoke(failedSave, "OnDeleteCategory", new Button { DataContext = rows.Items[2] }, new RoutedEventArgs());
+                Invoke(failedSave, "OnSave", failedSave, new RoutedEventArgs());
+                Check(failedSave.IsVisible && Label(failedSave, "ErrorLabel").Text.Contains("backup") && blocked.Prompts.Count == 9 && blocked.Settings.CategoryOrder.Length == 4, "Backup failure keeps Settings open with a visible error and preserves the full live library");
+                failedSave.DialogResult = false;
+            }
+            catch (Exception ex) { error = ex; failedSave.Close(); }
+        }));
+        failedSave.ShowDialog();
+        if (error is not null) throw error;
     }
     private static DragEventArgs MakeDrag(IDataObject data, DependencyObject target, Point point, RoutedEvent routedEvent)
     {

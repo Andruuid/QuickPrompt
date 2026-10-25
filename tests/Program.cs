@@ -309,4 +309,66 @@ try
     Check(rejected && File.ReadAllText(blockedStore.FilePath) == raw, "Migration cannot remove German labels if its backup fails");
 }
 finally { if (Directory.Exists(sharedDirectory)) Directory.Delete(sharedDirectory, true); }
+string categoryDirectory = Path.Combine(Path.GetTempPath(), "QuickPrompt.CategoryDeletion.Tests." + Guid.NewGuid().ToString("N"));
+try
+{
+    var categoryLibrary = Library.CreateDefault();
+    categoryLibrary.Settings.LastCategory = 2;
+    categoryLibrary.Prompts.Single(p => p.Name == "Review code").NonBilingual = true;
+    categoryLibrary.Prompts.Single(p => p.Name == "Review code").ContentDe = "";
+    var removedPrompts = categoryLibrary.Prompts.Where(p => p.Category == 2).ToArray();
+    var remainingPrompts = categoryLibrary.Prompts.Where(p => p.Category != 2).ToArray();
+    var store = new LibraryStore(categoryDirectory);
+    store.Save(categoryLibrary);
+    var settings = JsonSerializer.Deserialize<Preferences>(JsonSerializer.Serialize(categoryLibrary.Settings))!;
+    settings.Categories[2] = "";
+    settings.CategoryOrder = [0, 1, 3];
+    store.ApplySettings(categoryLibrary, settings);
+    Check(categoryLibrary.Settings.LastCategory == 0 && categoryLibrary.Prompts.All(p => p.Category != 2) && categoryLibrary.Prompts.Count == remainingPrompts.Length, "Deleting the selected category removes only its prompts and selects a remaining category");
+    Check(categoryLibrary.Prompts.All(p => remainingPrompts.Any(old => old.Id == p.Id && old.Category == p.Category)), "Category deletion keeps every surviving prompt's identity and category unchanged");
+    using (var backup = JsonDocument.Parse(File.ReadAllText(Directory.GetFiles(store.BackupDirectory, "*.json").Single())))
+    {
+        var removed = backup.RootElement.GetProperty("RemovedCategories")[0];
+        Check(removed.GetProperty("Id").GetInt32() == 2 && removed.GetProperty("Name").GetString() == "Code" && removed.GetProperty("Prompts").GetArrayLength() == removedPrompts.Length, "Deletion backup explicitly identifies the category and all contained prompts");
+        Check(removed.GetProperty("Prompts")[0].GetProperty("Content").GetString() == removedPrompts[0].Content && removed.GetProperty("Prompts")[1].GetProperty("ContentDe").GetString() == removedPrompts[1].ContentDe && removed.GetProperty("Prompts")[0].GetProperty("NonBilingual").GetBoolean(), "Category archive retains exact English/German bodies and non-bilingual flags");
+    }
+    Check(File.ReadAllText(Directory.GetFiles(store.BackupDirectory, "*.txt").Single()).Contains("Category deleted by this change"), "Readable category backup clearly marks the removed category");
+    var loaded = store.Load();
+    Check(loaded.Settings.CategoryOrder.SequenceEqual(new[] { 0, 1, 3 }) && loaded.Settings.Categories[2] == "" && loaded.Prompts.Count == remainingPrompts.Length, "Deleted category and prompts stay deleted after restarting");
+    settings = JsonSerializer.Deserialize<Preferences>(JsonSerializer.Serialize(loaded.Settings))!;
+    settings.Categories = ["", "", "", ""];
+    settings.CategoryOrder = [];
+    store.ApplySettings(loaded, settings);
+    Check(loaded.Settings.LastCategory == LauncherSearch.DocumentsTab && store.Load().Prompts.Count == 0, "Deleting every prompt category leaves a valid Documents-only library");
+    settings = JsonSerializer.Deserialize<Preferences>(JsonSerializer.Serialize(loaded.Settings))!;
+    settings.Categories[0] = "Fresh";
+    settings.CategoryOrder = [0];
+    store.ApplySettings(loaded, settings);
+    Check(store.Load().Settings.Categories[0] == "Fresh" && store.Load().Prompts.Count == 0, "Reusing a deleted category slot never resurrects its old prompts");
+
+    var blocked = Library.CreateDefault();
+    var blockedStore = new LibraryStore(Path.Combine(categoryDirectory, "blocked"));
+    blockedStore.Save(blocked);
+    var oldSettings = blocked.Settings;
+    var oldPrompts = blocked.Prompts;
+    string oldFile = File.ReadAllText(blockedStore.FilePath);
+    File.WriteAllText(blockedStore.BackupDirectory, "Backup folder blocked");
+    var deletion = JsonSerializer.Deserialize<Preferences>(JsonSerializer.Serialize(oldSettings))!;
+    deletion.CategoryOrder = [0, 1, 3];
+    deletion.Categories[2] = "";
+    bool rejected = false;
+    try { blockedStore.ApplySettings(blocked, deletion); } catch (IOException) { rejected = true; }
+    Check(rejected && ReferenceEquals(blocked.Settings, oldSettings) && ReferenceEquals(blocked.Prompts, oldPrompts) && blocked.Prompts.Count == 9 && File.ReadAllText(blockedStore.FilePath) == oldFile, "A failed category backup restores settings and all prompts in memory and on disk");
+    var orphan = new Library { Settings = new Preferences { Categories = ["General", "", "", ""], CategoryOrder = [0] }, Prompts = [new Prompt { Category = 2, Name = "Orphan", Content = "Do not lose" }] };
+    bool orphanRejected = false;
+    try { store.Save(orphan); } catch (InvalidDataException) { orphanRejected = true; }
+    Check(orphanRejected, "Storage rejects prompts referring to deleted category slots");
+    var emptyCategory = new Library { Settings = new Preferences { Categories = ["Empty", "", "", ""], CategoryOrder = [0] } };
+    var emptyStore = new LibraryStore(Path.Combine(categoryDirectory, "empty"));
+    emptyStore.Save(emptyCategory);
+    emptyStore.ApplySettings(emptyCategory, new Preferences { Categories = ["", "", "", ""], CategoryOrder = [] });
+    using var emptyBackup = JsonDocument.Parse(File.ReadAllText(Directory.GetFiles(emptyStore.BackupDirectory, "*.json").Single()));
+    Check(emptyBackup.RootElement.GetProperty("RemovedCategories")[0].GetProperty("Prompts").GetArrayLength() == 0, "Even an empty deleted category receives a permanent backup");
+}
+finally { if (Directory.Exists(categoryDirectory)) Directory.Delete(categoryDirectory, true); }
 Console.WriteLine($"\n{checks} checks passed.");

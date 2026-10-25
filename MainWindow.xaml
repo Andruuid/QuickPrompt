@@ -34,7 +34,7 @@
             </ControlTemplate.Triggers>
           </ControlTemplate></ToggleButton.Template>
         </ToggleButton>
-        <Button Grid.Column="2" HorizontalAlignment="Right" Content="+  New prompt" FontSize="11" Padding="10,4" Focusable="False" Click="OnNew" ToolTip="New prompt (Ctrl+N)"/>
+        <Button x:Name="NewPromptButton" Grid.Column="2" HorizontalAlignment="Right" Content="+  New prompt" FontSize="11" Padding="10,4" Focusable="False" Click="OnNew" ToolTip="New prompt (Ctrl+N)"/>
       </Grid>
       <Grid Grid.Row="1" Margin="0,8,0,4">
         <TextBox x:Name="SearchBox" FontSize="15" Padding="12,8,44,8" TextChanged="OnSearchChanged" AutomationProperties.Name="Search prompts"/>

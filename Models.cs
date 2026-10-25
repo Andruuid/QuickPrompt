@@ -43,7 +43,7 @@ public sealed class Preferences
     public string DocumentsFolder { get; set; } = @"C:\Launchy";
     public bool IncludeDocumentSubfolders { get; set; } = true;
     public string[] Categories { get; set; } = ["General", "Writing", "Code", "Research"];
-    // Category numbers are stable prompt identities; this array only changes their display order.
+    // Category numbers stay stable. Deleted slots have empty names and are absent from this order.
     public int[] CategoryOrder { get; set; } = [0, 1, 2, 3];
 }
 
@@ -167,15 +167,28 @@ public sealed class LibraryStore
 
     public static void Validate(Library library)
     {
-        if (library.Version != 1 || library.Settings is null || library.Prompts is null || library.Settings.Categories is not { Length: 4 } || library.Settings.Categories.Any(string.IsNullOrWhiteSpace))
-            throw new InvalidDataException("The library must have version 1 and four named categories.");
-        if (library.Prompts.Any(p => p is null || p.Category < 0 || p.Category > 3 || !p.HasValidTranslations()) || library.Prompts.Select(p => p.Id).Distinct().Count() != library.Prompts.Count)
-            throw new InvalidDataException("The library contains an invalid prompt.");
-        if (library.Settings.CategoryOrder is not { Length: 4 } || !library.Settings.CategoryOrder.Order().SequenceEqual(new[] { 0, 1, 2, 3 }))
-            throw new InvalidDataException("Category order must contain each of the four categories exactly once.");
+        if (library.Version != 1 || library.Settings is null || library.Prompts is null || library.Settings.Categories is not { Length: 4 })
+            throw new InvalidDataException("The library must have version 1 and four category slots.");
+        var order = library.Settings.CategoryOrder;
+        if (order is null || order.Length > 4 || order.Any(id => id < 0 || id > 3) || order.Distinct().Count() != order.Length
+            || Enumerable.Range(0, 4).Any(id => order.Contains(id) ? string.IsNullOrWhiteSpace(library.Settings.Categories[id]) : !string.IsNullOrEmpty(library.Settings.Categories[id])))
+            throw new InvalidDataException("Category order must list every active category exactly once; deleted category slots must be empty.");
+        if (library.Prompts.Any(p => p is null || !order.Contains(p.Category) || !p.HasValidTranslations()) || library.Prompts.Select(p => p.Id).Distinct().Count() != library.Prompts.Count)
+            throw new InvalidDataException("The library contains an invalid prompt or a prompt in a deleted category.");
         if (library.Settings.Language is not ("en" or "de")) library.Settings.Language = "en";
-        library.Settings.LastCategory = Math.Clamp(library.Settings.LastCategory, 0, 4);
+        if (library.Settings.LastCategory != LauncherSearch.DocumentsTab && !order.Contains(library.Settings.LastCategory))
+            library.Settings.LastCategory = order.FirstOrDefault(LauncherSearch.DocumentsTab);
         if (string.IsNullOrWhiteSpace(library.Settings.DocumentsFolder)) library.Settings.DocumentsFolder = @"C:\Launchy";
+    }
+
+    public void ApplySettings(Library library, Preferences settings)
+    {
+        var previousSettings = library.Settings;
+        var previousPrompts = library.Prompts;
+        library.Settings = settings;
+        library.Prompts = previousPrompts.Where(p => settings.CategoryOrder is not null && settings.CategoryOrder.Contains(p.Category)).ToList();
+        try { Save(library); }
+        catch { library.Settings = previousSettings; library.Prompts = previousPrompts; throw; }
     }
 
     public void Save(Library library)
@@ -206,7 +219,9 @@ public sealed class LibraryStore
     {
         var timestamp = DateTimeOffset.UtcNow;
         var removed = previous.Prompts.Where(p => !updated.Prompts.Any(current => current.Id == p.Id)).ToList();
-        string reason = removed.Count > 0 ? $"Before deleting {removed.Count} prompt(s)"
+        var removedCategories = previous.Settings.CategoryOrder.Where(id => !updated.Settings.CategoryOrder.Contains(id)).ToArray();
+        string reason = removedCategories.Length > 0 ? $"Before deleting {removedCategories.Length} categor{(removedCategories.Length == 1 ? "y" : "ies")} and {removed.Count} prompt{(removed.Count == 1 ? "" : "s")}"
+            : removed.Count > 0 ? $"Before deleting {removed.Count} prompt(s)"
             : !previous.Settings.Categories.SequenceEqual(updated.Settings.Categories) || !previous.Settings.CategoryOrder.SequenceEqual(updated.Settings.CategoryOrder)
                 ? "Before changing categories"
                 : previous.Prompts.Any(p => p.NameDe is not null || p.DescriptionDe is not null) && updated.Prompts.All(p => p.NameDe is null && p.DescriptionDe is null)
@@ -216,6 +231,7 @@ public sealed class LibraryStore
             BackupVersion = 1,
             CreatedAt = timestamp,
             Reason = reason,
+            RemovedCategories = removedCategories.Select(id => new { Id = id, Name = previous.Settings.Categories[id], Prompts = previous.Prompts.Where(p => p.Category == id).ToArray() }).ToArray(),
             RemovedPrompts = removed.Select(p => new { p.Id, CategoryId = p.Category, CategoryName = previous.Settings.Categories[p.Category], p.Name, p.NameDe }).ToArray(),
             Library = previous
         };
@@ -229,6 +245,7 @@ public sealed class LibraryStore
             foreach (int category in previous.Settings.CategoryOrder)
             {
                 text.AppendLine().AppendLine($"Category: {previous.Settings.Categories[category]} (ID: {category})");
+                if (removedCategories.Contains(category)) text.AppendLine("Category deleted by this change (all prompts below are included in this backup)");
                 foreach (var prompt in previous.Prompts.Where(p => p.Category == category))
                 {
                     text.AppendLine().AppendLine($"Prompt ID: {prompt.Id}");

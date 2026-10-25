@@ -26,7 +26,7 @@ public partial class PromptEditor : Window
         InitializeComponent();
         WindowTheme.UseDarkTitleBar(this);
         _original = original;
-        CategoryBox.ItemsSource = (categoryOrder ?? [0, 1, 2, 3]).Select(id => new KeyValuePair<int, string>(id, categories[id])).ToArray();
+        CategoryBox.ItemsSource = (categoryOrder ?? Enumerable.Range(0, categories.Length).Where(id => !string.IsNullOrWhiteSpace(categories[id])).ToArray()).Select(id => new KeyValuePair<int, string>(id, categories[id])).ToArray();
         CategoryBox.DisplayMemberPath = "Value";
         CategoryBox.SelectedValuePath = "Key";
         CategoryBox.SelectedValue = original?.Category ?? category;
@@ -91,6 +91,8 @@ public partial class PromptEditor : Window
     private void Save()
     {
         StoreTranslation();
+        if (CategoryBox.SelectedValue is not int category)
+        { ErrorLabel.Text = "Choose a category before saving."; CategoryBox.Focus(); return; }
         if (string.IsNullOrWhiteSpace(_draft.Name))
         { ErrorLabel.Text = "Give your prompt a shared English title."; NameBox.Focus(); return; }
         if (!_draft.HasLanguage("en") && !_draft.HasLanguage("de"))
@@ -100,7 +102,7 @@ public partial class PromptEditor : Window
         { ErrorLabel.Text = "Add the prompt text for this non-bilingual prompt."; ContentBox.Focus(); return; }
         var prompt = new Prompt
         {
-            Id = _draft.Id, Category = (int)CategoryBox.SelectedValue, Name = _draft.Name, Description = _draft.Description,
+            Id = _draft.Id, Category = category, Name = _draft.Name, Description = _draft.Description,
             Content = single && _language == "de" ? "" : _draft.Content,
             ContentDe = single && _language == "en" ? "" : _draft.ContentDe,
             NonBilingual = single

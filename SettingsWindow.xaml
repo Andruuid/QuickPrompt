@@ -11,8 +11,8 @@
         <TextBlock Text="The launcher stays above other windows and hides when you click away.&#10;It stays available in your system tray until you choose Exit." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,16,0,0"/>
       </StackPanel></TabItem>
       <TabItem x:Name="CategoriesTab" Header="Categories"><StackPanel Margin="10,16,10,0">
-        <TextBlock Text="Four spaces. Your workflow." FontSize="21" FontWeight="SemiBold"/>
-        <TextBlock Text="Drag the handles to reorder, or rename your tabs. Prompts stay in their category." TextWrapping="Wrap" Foreground="{StaticResource Muted}" Margin="0,8,0,18"/>
+        <TextBlock Text="Your categories. Your workflow." FontSize="21" FontWeight="SemiBold"/>
+        <TextBlock Text="Rename, reorder, or delete a category and its prompts. Deletions are backed up before saving." TextWrapping="Wrap" Foreground="{StaticResource Muted}" Margin="0,8,0,18"/>
         <ListBox x:Name="CategoryList" Background="Transparent" BorderThickness="0" Padding="0" Foreground="{StaticResource Text}" AllowDrop="True" PreviewDragOver="OnCategoryDragOver" PreviewDrop="OnCategoryDrop" DragLeave="OnCategoryDragLeave" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Category order">
           <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem">
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
@@ -24,17 +24,19 @@
             </ControlTemplate></Setter.Value></Setter>
           </Style></ListBox.ItemContainerStyle>
           <ListBox.ItemTemplate><DataTemplate>
-            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="32"/><ColumnDefinition Width="*"/><ColumnDefinition Width="32"/><ColumnDefinition Width="32"/></Grid.ColumnDefinitions>
+            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="32"/><ColumnDefinition Width="*"/><ColumnDefinition Width="32"/><ColumnDefinition Width="32"/><ColumnDefinition Width="64"/></Grid.ColumnDefinitions>
               <Border Background="Transparent" Cursor="SizeNS" ToolTip="Drag to reorder this category" PreviewMouseLeftButtonDown="OnCategoryDragStart" MouseMove="OnCategoryDragMove" MouseLeftButtonUp="OnCategoryDragEnd">
                 <TextBlock Text="⠿" FontSize="22" Foreground="{StaticResource Muted}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
               </Border>
               <TextBox Grid.Column="1" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" MaxLength="24" AutomationProperties.Name="Category name"/>
               <Button Grid.Column="2" Content="↑" Padding="0" Margin="5,0,0,0" Click="OnCategoryUp" ToolTip="Move category up" AutomationProperties.Name="Move category up"/>
               <Button Grid.Column="3" Content="↓" Padding="0" Margin="4,0,0,0" Click="OnCategoryDown" ToolTip="Move category down" AutomationProperties.Name="Move category down"/>
+              <Button Grid.Column="4" Content="Delete" Padding="6,0" FontSize="11" Foreground="#FFB5B5" Margin="6,0,0,0" Click="OnDeleteCategory" ToolTip="Delete this category and all its prompts" AutomationProperties.Name="Delete category"/>
             </Grid>
           </DataTemplate></ListBox.ItemTemplate>
         </ListBox>
-        <TextBlock Text="Documents stays last. Changes apply when you save." FontSize="11" Foreground="{StaticResource Muted}" Margin="32,10,0,0"/>
+        <Button x:Name="AddCategoryButton" Content="+ Add category" HorizontalAlignment="Left" Margin="32,10,0,0" Padding="10,6" Click="OnAddCategory"/>
+        <TextBlock x:Name="CategoryChangeNote" FontSize="11" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="32,10,0,0"/>
       </StackPanel></TabItem>
       <TabItem Header="Documents"><StackPanel Margin="10,16,10,0">
         <TextBlock Text="Your files, one shortcut away." FontSize="21" FontWeight="SemiBold"/>

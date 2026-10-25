@@ -42,7 +42,7 @@ public partial class MainWindow : Window
     {
         _store = store;
         _library = library;
-        _category = library.Settings.RememberCategory ? library.Settings.LastCategory : library.Settings.CategoryOrder[0];
+        _category = library.Settings.RememberCategory ? library.Settings.LastCategory : library.Settings.CategoryOrder.FirstOrDefault(LauncherSearch.DocumentsTab);
         InitializeComponent();
         LanguageToggle.IsChecked = library.Settings.Language == "de";
         _ready = true;
@@ -176,7 +176,7 @@ public partial class MainWindow : Window
         if (!IsVisible)
         {
             _previousWindow = NativeMethods.GetForegroundWindow();
-            if (!_library.Settings.RememberCategory) _category = _library.Settings.CategoryOrder[0];
+            if (!_library.Settings.RememberCategory) _category = _library.Settings.CategoryOrder.FirstOrDefault(LauncherSearch.DocumentsTab);
             SearchBox.Clear();
             BuildTabs();
             RefreshPrompts();
@@ -220,18 +220,23 @@ public partial class MainWindow : Window
     private void BuildTabs()
     {
         CategoryTabs.Children.Clear();
-        for (int i = 0; i < 5; i++)
+        int count = _library.Settings.CategoryOrder.Length;
+        CategoryTabs.Columns = count + 1;
+        NewPromptButton.IsEnabled = count > 0;
+        NewPromptButton.ToolTip = count > 0 ? "New prompt (Ctrl+N)" : "Add a category in Settings → Categories first";
+        if (_category != LauncherSearch.DocumentsTab && !_library.Settings.CategoryOrder.Contains(_category)) _category = _library.Settings.CategoryOrder.FirstOrDefault(LauncherSearch.DocumentsTab);
+        for (int i = 0; i <= count; i++)
         {
-            int index = i == LauncherSearch.DocumentsTab ? LauncherSearch.DocumentsTab : _library.Settings.CategoryOrder[i];
+            int index = i == count ? LauncherSearch.DocumentsTab : _library.Settings.CategoryOrder[i];
             var button = new Button
             {
                 Content = index == LauncherSearch.DocumentsTab ? "Documents" : _library.Settings.Categories[index], Focusable = false,
                 FontSize = 12,
-                Margin = new Thickness(i == 0 ? 0 : 3, 0, i == 4 ? 0 : 3, 0), Padding = new Thickness(4, 5, 4, 5),
+                Margin = new Thickness(i == 0 ? 0 : 3, 0, i == count ? 0 : 3, 0), Padding = new Thickness(4, 5, 4, 5),
                 Background = Brush(index == _category ? "#30394E" : "#17191E"),
                 BorderBrush = Brush(index == _category ? "#4A5B7C" : "#32363F"),
                 Foreground = (Brush)FindResource(index == _category ? "Text" : "Muted"),
-                ToolTip = (index == LauncherSearch.DocumentsTab ? "Documents" : _library.Settings.Categories[index]) + " (Alt+" + (i + 1) + ")"
+                ToolTip = (index == LauncherSearch.DocumentsTab ? "Documents" : _library.Settings.Categories[index]) + " (Alt+" + (index == LauncherSearch.DocumentsTab ? 5 : i + 1) + ")"
             };
             button.Click += (_, _) => SwitchCategory(index);
             CategoryTabs.Children.Add(button);
@@ -258,7 +263,8 @@ public partial class MainWindow : Window
 
     private void SwitchCategory(int index)
     {
-        _category = (index + 5) % 5;
+        if (index != LauncherSearch.DocumentsTab && !_library.Settings.CategoryOrder.Contains(index)) return;
+        _category = index;
         _library.Settings.LastCategory = _category;
         BuildTabs();
         RefreshPrompts();
@@ -267,12 +273,17 @@ public partial class MainWindow : Window
         try { _store.Save(_library); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { Hint.Text = "Could not save category preference."; }
     }
-    private void SwitchCategoryPosition(int position) => SwitchCategory(position == LauncherSearch.DocumentsTab
-        ? LauncherSearch.DocumentsTab : _library.Settings.CategoryOrder[position]);
+    private void SwitchCategoryPosition(int position)
+    {
+        int count = _library.Settings.CategoryOrder.Length;
+        if (position < 0 || position > count) return;
+        SwitchCategory(position == count ? LauncherSearch.DocumentsTab : _library.Settings.CategoryOrder[position]);
+    }
     private void MoveCategorySelection(int delta)
     {
-        int position = _category == LauncherSearch.DocumentsTab ? LauncherSearch.DocumentsTab : Array.IndexOf(_library.Settings.CategoryOrder, _category);
-        SwitchCategoryPosition((position + delta + 5) % 5);
+        int count = _library.Settings.CategoryOrder.Length + 1;
+        int position = _category == LauncherSearch.DocumentsTab ? count - 1 : Array.IndexOf(_library.Settings.CategoryOrder, _category);
+        SwitchCategoryPosition((position + delta + count) % count);
     }
 
     private void RefreshPrompts(Guid? select = null, string? selectedIdentity = null)
@@ -360,7 +371,12 @@ public partial class MainWindow : Window
         else if (key == Key.F2) EditSelected();
         else if (key == Key.F5) RefreshDocuments();
         else if (key == Key.Tab) MoveCategorySelection(modifiers.HasFlag(ModifierKeys.Shift) ? -1 : 1);
-        else if (modifiers == ModifierKeys.Alt && key >= Key.D1 && key <= Key.D5) SwitchCategoryPosition(key - Key.D1);
+        else if (modifiers == ModifierKeys.Alt && key >= Key.D1 && key <= Key.D5)
+        {
+            int position = key - Key.D1;
+            if (position == 4) SwitchCategory(LauncherSearch.DocumentsTab);
+            else if (position < _library.Settings.CategoryOrder.Length) SwitchCategoryPosition(position);
+        }
         else if (key == Key.Enter) await ActivateSelected();
         else if (key == Key.Down || (!search && modifiers == ModifierKeys.None && key == Key.K)) MoveSelection(1);
         else if (key == Key.Up || (!search && modifiers == ModifierKeys.None && key == Key.I)) MoveSelection(-1);
@@ -445,6 +461,7 @@ public partial class MainWindow : Window
     private void EditPrompt(Prompt? original, bool focusContent = false)
     {
         if (_dialogOpen) return;
+        if (_library.Settings.CategoryOrder.Length == 0) { OpenSettings(); return; }
         var editor = new PromptEditor(_library.Settings.Categories, original, _category == LauncherSearch.DocumentsTab ? _library.Settings.CategoryOrder[0] : _category, _library.Settings.Language, focusContent, _library.Settings.CategoryOrder);
         editor.SavePrompt = (draft, delete) =>
         {
@@ -471,15 +488,14 @@ public partial class MainWindow : Window
     {
         if (_dialogOpen) { _dialog?.Activate(); return; }
         ShowLauncher();
-        var settings = new SettingsWindow(_library.Settings, _registeredHotkey, _store.FilePath);
+        var settings = new SettingsWindow(_library.Settings, _registeredHotkey, _store.FilePath, _library.Prompts);
+        if (_library.Settings.CategoryOrder.Length == 0) ((TabItem)settings.FindName("CategoriesTab")).IsSelected = true;
         settings.SaveSettings = updated =>
         {
             string? oldHotkey = _registeredHotkey;
             if (!TrySetHotkey(updated.Hotkey)) throw new InvalidOperationException("That shortcut is already in use. Try another shortcut or close the other launcher first.");
-            var previous = _library.Settings;
-            _library.Settings = updated;
-            try { _store.Save(_library); }
-            catch { _library.Settings = previous; if (oldHotkey is not null) TrySetHotkey(oldHotkey); throw; }
+            try { _store.ApplySettings(_library, updated); }
+            catch { if (oldHotkey is not null) TrySetHotkey(oldHotkey); throw; }
         };
         RunDialog(settings);
         BuildTabs(); RefreshPrompts(); FocusList();

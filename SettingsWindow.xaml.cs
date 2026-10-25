@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Collections.ObjectModel;
+using System.Collections.Generic;
 
 namespace QuickPrompt;
 
@@ -14,6 +15,7 @@ public partial class SettingsWindow : Window
     private readonly Preferences _original;
     private readonly string _backupDirectory;
     private readonly ObservableCollection<CategoryRow> _categoryRows;
+    private readonly Dictionary<int, int> _promptCounts;
     private Point? _dragStart;
     private const string CategoryDragFormat = "QuickPrompt.CategoryRow";
     public sealed class CategoryRow(int id, string name)
@@ -22,12 +24,14 @@ public partial class SettingsWindow : Window
         public string Name { get; set; } = name;
     }
     public Action<Preferences>? SaveSettings { get; set; }
-    public SettingsWindow(Preferences settings, string? activeHotkey, string path)
+    internal Func<string, int, bool>? ConfirmDeleteCategory { get; set; }
+    public SettingsWindow(Preferences settings, string? activeHotkey, string path, IEnumerable<Prompt>? prompts = null)
     {
         InitializeComponent();
         WindowTheme.UseDarkTitleBar(this);
         VersionLabel.Text = $"Version {typeof(App).Assembly.GetName().Version!.ToString(3)} · A small home for your best prompts.";
         _original = settings;
+        _promptCounts = (prompts ?? []).GroupBy(p => p.Category).ToDictionary(group => group.Key, group => group.Count());
         _backupDirectory = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(path))!, "bak");
         OpenBackupsButton.ToolTip = _backupDirectory;
         HotkeyBox.ItemsSource = NativeMethods.Hotkeys;
@@ -36,22 +40,61 @@ public partial class SettingsWindow : Window
         AllCategoriesBox.IsChecked = settings.SearchAllCategories;
         _categoryRows = new(settings.CategoryOrder.Select(id => new CategoryRow(id, settings.Categories[id])));
         CategoryList.ItemsSource = _categoryRows;
+        UpdateCategoryActions();
         DataPath.Text = path;
         DocumentsFolderBox.Text = settings.DocumentsFolder;
         SubfoldersBox.IsChecked = settings.IncludeDocumentSubfolders;
     }
     private void OnSave(object sender, RoutedEventArgs e)
     {
-        string[] categories = _categoryRows.OrderBy(row => row.Id).Select(row => row.Name.Trim()).ToArray();
-        if (categories.Any(string.IsNullOrWhiteSpace)) { ErrorLabel.Text = "Give each category a name."; return; }
-        if (categories.Distinct(StringComparer.OrdinalIgnoreCase).Count() != 4) { ErrorLabel.Text = "Use a different name for each category."; return; }
+        string[] categories = ["", "", "", ""];
+        foreach (var row in _categoryRows) categories[row.Id] = row.Name.Trim();
+        if (_categoryRows.Any(row => string.IsNullOrWhiteSpace(categories[row.Id]))) { ErrorLabel.Text = "Give each category a name."; return; }
+        if (_categoryRows.Select(row => categories[row.Id]).Distinct(StringComparer.OrdinalIgnoreCase).Count() != _categoryRows.Count) { ErrorLabel.Text = "Use a different name for each category."; return; }
         try
         {
-            var updated = new Preferences { Categories = categories, Hotkey = HotkeyBox.SelectedItem as string ?? "Alt+Space", RememberCategory = RememberBox.IsChecked == true, SearchAllCategories = AllCategoriesBox.IsChecked == true, LastCategory = _original.LastCategory,
+            int[] order = _categoryRows.Select(row => row.Id).ToArray();
+            var updated = new Preferences { Categories = categories, Hotkey = HotkeyBox.SelectedItem as string ?? "Alt+Space", RememberCategory = RememberBox.IsChecked == true, SearchAllCategories = AllCategoriesBox.IsChecked == true, LastCategory = _original.LastCategory == LauncherSearch.DocumentsTab || order.Contains(_original.LastCategory) ? _original.LastCategory : order.FirstOrDefault(LauncherSearch.DocumentsTab),
                 CategoryOrder = _categoryRows.Select(row => row.Id).ToArray(), Language = _original.Language, DocumentsFolder = GetDocumentsFolder(), IncludeDocumentSubfolders = SubfoldersBox.IsChecked == true };
             SaveSettings!(updated); DialogResult = true;
         }
         catch (Exception ex) { ErrorLabel.Text = "Couldn't save settings: " + ex.Message; }
+    }
+    private int AvailableCategoryId() => Enumerable.Range(0, 4).FirstOrDefault(id => !_original.CategoryOrder.Contains(id) && !_categoryRows.Any(row => row.Id == id), -1);
+    private void UpdateCategoryActions()
+    {
+        AddCategoryButton.IsEnabled = AvailableCategoryId() >= 0;
+        AddCategoryButton.ToolTip = AddCategoryButton.IsEnabled ? "Add a prompt category" : _categoryRows.Count == 4 ? "Up to four prompt categories" : "Save pending deletions before reusing their category slots";
+        var removed = _original.CategoryOrder.Where(id => !_categoryRows.Any(row => row.Id == id)).ToArray();
+        int count = removed.Sum(id => _promptCounts.GetValueOrDefault(id));
+        CategoryChangeNote.Text = removed.Length > 0
+            ? $"{removed.Length} categor{(removed.Length == 1 ? "y" : "ies")} and {count} prompt{(count == 1 ? "" : "s")} will be backed up and deleted when you save. Cancel keeps them."
+            : "Documents stays last. Changes apply when you save.";
+    }
+    private void OnDeleteCategory(object sender, RoutedEventArgs e)
+    {
+        var row = (CategoryRow)((FrameworkElement)sender).DataContext;
+        string name = string.IsNullOrWhiteSpace(row.Name) ? _original.Categories[row.Id] : row.Name.Trim();
+        int count = _promptCounts.GetValueOrDefault(row.Id);
+        bool confirmed;
+        if (ConfirmDeleteCategory is not null) confirmed = ConfirmDeleteCategory(name, count);
+        else
+        {
+            var dialog = new DeleteCategoryWindow(name, count) { Owner = this, Topmost = Topmost, WindowStartupLocation = WindowStartupLocation.CenterOwner };
+            confirmed = dialog.ShowDialog() == true;
+        }
+        if (!confirmed) return;
+        _categoryRows.Remove(row);
+        UpdateCategoryActions();
+    }
+    private void OnAddCategory(object sender, RoutedEventArgs e)
+    {
+        int id = AvailableCategoryId();
+        if (id < 0) return;
+        string name = "New category";
+        for (int suffix = 2; _categoryRows.Any(row => row.Name.Trim().Equals(name, StringComparison.OrdinalIgnoreCase)); suffix++) name = "New category " + suffix;
+        _categoryRows.Add(new CategoryRow(id, name));
+        UpdateCategoryActions();
     }
     private void OnCategoryDragStart(object sender, MouseButtonEventArgs e)
     {
